@@ -96,7 +96,7 @@ def run_sampling(cfg: Cfg):
             continue
 
         if result == "__TIMEOUT__":
-            append_txt_line(samples.LOG_PATH, f"{name}: TASK TIMEOUT ({M.TASK_TIMEOUT}s)")
+            append_txt_line(samples.LOG_PATH, f"{name}: TASK TIMEOUT ({samples.TASK_TIMEOUT}s)")
             continue
         if result == "__CRASH__":
             append_txt_line(samples.LOG_PATH, f"{name}: TASK CRASHED")

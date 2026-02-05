@@ -54,7 +54,7 @@ def save_rotation_script(folder_path, local_path,  script, angle_list, make_stl=
         py_file_to_mesh_file(filepath, out_mesh_dir=folder_path + '_stl')
 
 
-def rotate_script(path, N = 1, zero_angle=True, make_stl=False):
+def rotate_script(path, N = 1, zero_angle=True, make_stl=False, config = None):
     with open(path,'r')as f:
         code = f.read()
 
@@ -123,7 +123,7 @@ def rotate_script(path, N = 1, zero_angle=True, make_stl=False):
 
 
 def script_rotations(meshes_path, N = 1, zero_angle=True, make_stl=False,
-                         n_processes=16, sampling=False, num_samples = 1000):
+                         n_processes=16, sampling=False, num_samples = 1000, config = None):
     paths = [str(p) for p in Path(meshes_path).rglob('*.py')]
     random.seed(42)
     if sampling:
@@ -133,7 +133,7 @@ def script_rotations(meshes_path, N = 1, zero_angle=True, make_stl=False,
     pool = ProcessPool(n_processes = n_processes,
                         timeout = 30,
                 task_func = rotate_script,
-                task_args = [[path, N, zero_angle, make_stl] for path in test_paths]
+                task_args = [[path, N, zero_angle, make_stl, config] for path in test_paths]
                 )
     pool.run()
 
@@ -142,7 +142,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True, help='Path to config file')
     args = parser.parse_args()
-
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
 
@@ -151,10 +150,11 @@ if __name__ == '__main__':
     try:
         config['output_path']
         script_rotations(config['data_path'],
-                            N=config.get('N', 1),
+                            N=config.get('N', 6),
                             zero_angle=config.get('zero_angle', True),
                             make_stl=config.get('make_stl', False),
-                            n_processes=config.get('workers', 16))
+                            n_processes=config.get('workers', 16),
+                            config = config)
     except Exception as e:
         print('No data_path or output_path')
         raise(e)

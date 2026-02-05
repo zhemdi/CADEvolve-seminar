@@ -93,7 +93,7 @@ log "Flatten done: $(find "$FLAT_DIR" -maxdepth 1 -type f -name "*.py" | wc -l) 
 log "Step 4: rotation augmentation"
 (
   cd "$OUT_DIR"
-  python "$ROTATED_PY" --config "$CFG_ROT"
+  python "$ROT_PY" --config "$CFG_ROT"
 )
 
 log "Pipeline finished OK"
