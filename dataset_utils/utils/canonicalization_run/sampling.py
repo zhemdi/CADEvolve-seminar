@@ -32,6 +32,14 @@ def load_cfg(path: Path) -> Cfg:
 
 
 def run_sampling(cfg: Cfg):
+    
+
+    cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg.save_dir.mkdir(parents=True, exist_ok=True)
+
+    from steps import samples
+    samples.configure(cfg)
+
     from steps.samples import (
         load_code_db,
         NonDaemonPool,
@@ -39,9 +47,6 @@ def run_sampling(cfg: Cfg):
         timed_process_part,
         append_txt_line,
     )
-
-    cfg.log_path.parent.mkdir(parents=True, exist_ok=True)
-    cfg.save_dir.mkdir(parents=True, exist_ok=True)
 
     db = load_code_db(str(cfg.code_dir))
     print("All parts:", len(db))
@@ -57,12 +62,11 @@ def run_sampling(cfg: Cfg):
     else:
         parts = list(db)
 
-    import steps.samples as M
-    M.LOG_PATH = cfg.log_path
-    M.SAVE_DIR = cfg.save_dir
-    M.N_WORKERS = cfg.n_workers
-    M.TASK_TIMEOUT = cfg.task_timeout
-    M.CODE_DIR = str(cfg.code_dir)
+    # SAVE_DIR = cfg.save_dir
+
+
+    
+    
 
     from multiprocessing import get_context
     ctx = get_context(cfg.start_method)
@@ -73,6 +77,8 @@ def run_sampling(cfg: Cfg):
         context=ctx,
     )
     print("POOL Initialized", flush=True)
+
+    
 
     import atexit
     atexit.register(lambda: (pool.close(), pool.join()))
@@ -86,17 +92,17 @@ def run_sampling(cfg: Cfg):
         try:
             result = ar.get()
         except Exception as e:
-            append_txt_line(M.LOG_PATH, f"{name}: TASK CRASHED (pool get): {e}")
+            append_txt_line(samples.LOG_PATH, f"{name}: TASK CRASHED (pool get): {e}")
             continue
 
         if result == "__TIMEOUT__":
-            append_txt_line(M.LOG_PATH, f"{name}: TASK TIMEOUT ({M.TASK_TIMEOUT}s)")
+            append_txt_line(samples.LOG_PATH, f"{name}: TASK TIMEOUT ({M.TASK_TIMEOUT}s)")
             continue
         if result == "__CRASH__":
-            append_txt_line(M.LOG_PATH, f"{name}: TASK CRASHED")
+            append_txt_line(samples.LOG_PATH, f"{name}: TASK CRASHED")
             continue
         if result is not None:
-            append_txt_line(M.LOG_PATH, result)
+            append_txt_line(samples.LOG_PATH, result)
 
 
 def main():

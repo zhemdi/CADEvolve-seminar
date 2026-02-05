@@ -803,10 +803,19 @@ class NonDaemonPool(Pool):
 
 # ========== Main helpers ==========
 
+def get_top_level_function_name(py_path: Path) -> str:
+    src = py_path.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(py_path))
+
+    # find first top-level function definition
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return node.name
+
+    raise ValueError(f"No top-level function found in {py_path}")
 
 def load_code_db(py_dir: Path):
     py_dir = Path(py_dir)
-    print(py_dir)
     if not py_dir.is_dir():
         raise ValueError(f"--code-dir must be a directory, got: {py_dir}")
 
@@ -815,7 +824,7 @@ def load_code_db(py_dir: Path):
         if p.is_file() and p.suffix == ".py":
             parts.append(
                 {
-                    "name": p.stem,
+                    "name": get_top_level_function_name(p),
                     "code": p.read_text(encoding="utf-8"),
                     "path": p,
                 }
@@ -1389,7 +1398,24 @@ def init_worker():
     })
 
 
+LOG_PATH = "logs/sampling.log"
+SAVE_DIR = Path("sampled")
+N_WORKERS = 16
+TASK_TIMEOUT = 60
+CODE_DIR = "../generators/"
+
+def configure(cfg):
+    global LOG_PATH, SAVE_DIR, N_WORKERS, TASK_TIMEOUT, CODE_DIR
+    LOG_PATH = cfg.log_path
+    SAVE_DIR = Path(cfg.save_dir)
+    N_WORKERS = cfg.n_workers
+    TASK_TIMEOUT = cfg.task_timeout
+    CODE_DIR = str(cfg.code_dir)
+    # print(SAVE_DIR)
+
+
 # ========== Pipeline Execution ==========
+
 
 
 if __name__ == "__main__":
