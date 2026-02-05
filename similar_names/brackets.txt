@@ -1,0 +1,5 @@
+['bracket_plate_slot',
+ 'bracketed_plate_slot',
+ 'corner_block_bracket',
+ 'medial_gusset_plate',
+ 'conformal_bracket_box']

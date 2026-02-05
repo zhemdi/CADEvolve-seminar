@@ -1,0 +1,20 @@
+name: cadevolve-seminar
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - tqdm
+  - jupyterlab
+  - ipykernel
+  - nbformat
+  - matplotlib
+  - trimesh
+  - cadquery=2.5.*
+  - ocp=7.7.*
+  - rtree
+  - pip:
+      - openai>=1.40.0

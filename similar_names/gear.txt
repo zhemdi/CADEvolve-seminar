@@ -1,0 +1,5 @@
+['spur_gear',
+ 'spur_gear_with_hub',
+ 'spur_gear_with_internal_rib_web',
+ 'spur_gear_with_helical_spoke_supports',
+ 'spur_gear_with_variable_tooth_profile']

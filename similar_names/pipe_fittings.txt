@@ -1,0 +1,5 @@
+['pipe_sweep',
+ 'pipe_sweep_with_flanged_ends',
+ 'pipe_sweep_with_branching_T_joint',
+ 'pipe_sweep_with_branching_y_connector',
+ 'pipe_sweep_with_flanged_ends_and_o_rings']

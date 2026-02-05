@@ -1,0 +1,10 @@
+code_dir: .
+log_path: logs/sampling.log
+save_dir: sampled
+
+n_workers: 16
+task_timeout: 30
+
+start_method: forkserver
+only_missing: true
+require_file: "100.py"

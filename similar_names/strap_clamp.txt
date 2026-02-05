@@ -1,0 +1,5 @@
+['cable_clamp_annular',
+ 'annular_ring_with_clamp_tabs',
+ 'annular_ring_with_tabbed_flange',
+ 'gusseted_flanged_ring',
+ 'flanged_cylinder_with_slot']

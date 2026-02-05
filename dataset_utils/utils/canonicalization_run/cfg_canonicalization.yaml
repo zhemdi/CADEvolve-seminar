@@ -1,0 +1,12 @@
+root_dir: sampled
+out_dir: canonicalized
+logs_dir: logs
+flat: false
+n_workers: 16
+task_timeout: 60
+
+steps:
+  standardize: true
+  center: true
+  scale: true
+  binarize: true
