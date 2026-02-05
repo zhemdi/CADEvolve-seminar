@@ -1,20 +1,58 @@
 name: cadevolve-seminar
 channels:
+  - pytorch
+  - nvidia
   - conda-forge
 dependencies:
   - python=3.11
   - pip
+
+  # core
   - numpy
   - scipy
   - pandas
   - tqdm
+  - pyyaml
+
+  # notebook
   - jupyterlab
   - ipykernel
   - nbformat
   - matplotlib
+
+  # geometry / preview
   - trimesh
+  - rtree
+
+  # cadquery stack
   - cadquery=2.5.*
   - ocp=7.7.*
-  - rtree
+
+  # evolution / optimization
+  - cma
+
+  # rendering stack used by Plotter
+  - pillow
+  - pyvista
+  - vtk
+  - opencv
+
+  # training deps (conda side)
+  - safetensors
+  - tokenizers
+  - sentencepiece
+
   - pip:
+      # openai api for generator bootstrapping
       - openai>=1.40.0
+
+      # HF training stack
+      - transformers>=4.45.0
+      - accelerate>=0.33.0
+      - datasets>=2.20.0
+      - torch==2.4.0+cu121 --index-url https://download.pytorch.org/whl/cu121
+      - flash-attn
+
+      # (optional but often needed in HF stack)
+      - einops
+      - packaging
