@@ -1,4 +1,4 @@
-code_dir: .
+code_dir: ../generators/
 log_path: logs/sampling.log
 save_dir: sampled
 
