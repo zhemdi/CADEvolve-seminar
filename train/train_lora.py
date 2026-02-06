@@ -19,6 +19,10 @@ from qwen_vl_utils import process_vision_info
 
 from visualization_iso import Plotter
 
+# --- LoRA / PEFT ---
+from peft import LoraConfig, get_peft_model, TaskType
+
+
 # -----------------------------------------------------------------------------
 # config utils
 # -----------------------------------------------------------------------------
@@ -41,6 +45,7 @@ def as_abs_path(p: str, *, strict: bool = False) -> Path:
 
     return raw.resolve(strict=strict)
 
+
 # -----------------------------------------------------------------------------
 # logging
 # -----------------------------------------------------------------------------
@@ -53,7 +58,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="trimesh")
 
 
 class STLImagesDataset(Dataset):
-    
     def __init__(self,
                  items_pkl: Path,
                  max_script_len=None,
@@ -70,17 +74,13 @@ class STLImagesDataset(Dataset):
         with open(items_pkl, "rb") as f:
             self.items = pickle.load(f)   # [(py_path_str, stl_path_str), ...]
 
-
+        # create and load *_l3k.pkl if not already
         if not str(items_pkl)[:-4].endswith("l3k"):
             new_items = []
             for item in self.items:
                 py_path_str, stl_path_str = item
-
                 py_path = Path(py_path_str)
-
                 code = py_path.read_text(encoding="utf-8", errors="ignore")
-                
-
                 if len(code) < 3000:
                     new_items.append(item)
 
@@ -96,7 +96,7 @@ class STLImagesDataset(Dataset):
 
     def __clean_code__(self, code: str):
         return '\n'.join(code.split('\n')[2:-3])
-        
+
     def __getitem__(self, idx):
         if self.plotter is None:
             self.plotter = Plotter()
@@ -107,10 +107,6 @@ class STLImagesDataset(Dataset):
             stl_path = Path(stl_path_str)
 
             code = py_path.read_text(encoding="utf-8", errors="ignore")
-            # print(len(code), py_path_str)
-            # if len(code) > 3000:
-            #     idx = random.randrange(len(self.items))
-            #     continue
             if self.language == 'dsl':
                 code = self.__clean_code__(code)
 
@@ -124,8 +120,9 @@ class STLImagesDataset(Dataset):
 
         raise RuntimeError("Too many consecutive render failures")
 
+
 # -----------------------------------------------------------------------------
-# training logic – everything else is identical
+# training logic
 # -----------------------------------------------------------------------------
 def find_assistant_spans(tokenizer, ids):
     """
@@ -150,6 +147,7 @@ def find_assistant_spans(tokenizer, ids):
                 continue
         i += 1
     return spans
+
 
 def collate_fn_for_sft(batch, processor):
     batch = [b for b in batch if b is not None]
@@ -178,20 +176,46 @@ def collate_fn_for_sft(batch, processor):
     inputs["labels"] = torch.tensor(labels)
     return inputs
 
+
+def add_lora(model, lora_cfg: dict):
+    """
+    Wrap model with LoRA adapters (PEFT).
+
+    Expected keys in lora_cfg (all optional):
+      enabled: bool
+      r: int
+      lora_alpha: int
+      lora_dropout: float
+      bias: "none" | "lora_only" | "all"
+      target_modules: list[str]
+    """
+    default_targets = ["q_proj", "k_proj", "v_proj", "o_proj", "up_proj", "down_proj", "gate_proj"]
+    target_modules = lora_cfg.get("target_modules") or default_targets
+
+    cfg = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        r=int(lora_cfg.get("r", 16)),
+        lora_alpha=int(lora_cfg.get("lora_alpha", 32)),
+        lora_dropout=float(lora_cfg.get("lora_dropout", 0.05)),
+        bias=str(lora_cfg.get("bias", "none")),
+        target_modules=target_modules,
+    )
+    model = get_peft_model(model, cfg)
+    model.print_trainable_parameters()
+    return model
+
+
 def run_training(cfg: dict):
     script_path = Path(__file__).resolve().parent
+
     # ----- logging -----
-    # log_path = as_abs_path(cfg["logging"]["log_path"])
     log_path = script_path / cfg["logging"]["log_path"]
     setup_logging(log_path)
 
     # ----- paths & constants -----
-    # items_pkl = as_abs_path(cfg["data"]["items_pkl"], strict=True)
     items_pkl = Path(cfg["data"]["items_pkl"])
     model_id = cfg["model"]["model_id"]
-    # processor_id = cfg["model"]["processor_id"]
 
-    # output_dir = as_abs_path(cfg["paths"]["output_dir"])
     output_dir = Path(cfg["paths"]["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -201,7 +225,7 @@ def run_training(cfg: dict):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    # ----- processor/model -----
+    # ----- processor -----
     processor = AutoProcessor.from_pretrained(
         model_id,
         trust_remote_code=bool(cfg["processor"]["trust_remote_code"]),
@@ -210,19 +234,18 @@ def run_training(cfg: dict):
         padding_side=str(cfg["processor"]["padding_side"]),
     )
 
-
+    # ----- dtype -----
     dtype_str = str(cfg["model"]["torch_dtype"]).lower()
     dtype_map = {
         "bfloat16": torch.bfloat16,
         "float16": torch.float16,
         "float32": torch.float32,
     }
-
     if dtype_str not in dtype_map:
         raise ValueError(f"Unsupported torch_dtype: {dtype_str}. Use one of: {list(dtype_map)}")
-
     torch_dtype = dtype_map[dtype_str]
 
+    # ----- model -----
     model = Qwen2VLForConditionalGeneration.from_pretrained(
         model_id,
         torch_dtype=torch_dtype,
@@ -230,25 +253,34 @@ def run_training(cfg: dict):
         trust_remote_code=bool(cfg["model"]["trust_remote_code"]),
     )
 
+    # ----- memory savers (recommended) -----
+    mem_cfg = cfg.get("memory", {})
+    if bool(mem_cfg.get("gradient_checkpointing", True)):
+        model.gradient_checkpointing_enable()
+        if hasattr(model.config, "use_cache"):
+            model.config.use_cache = False
+
+    # ----- LoRA -----
+    lora_cfg = cfg.get("lora", {})
+    if bool(lora_cfg.get("enabled", True)):
+        model = add_lora(model, lora_cfg)
+
     # ----- dataset -----
     ds_cfg = cfg["dataset"]
-
     train_full = STLImagesDataset(
         items_pkl=items_pkl,
-        # py_root=cfg["data"]["py_root"],
-        # stl_root=cfg["data"]["stl_root"],
         max_script_len=ds_cfg.get("max_script_len", None),
         apply_augs=bool(ds_cfg.get("apply_augs", False)),
         language=str(ds_cfg.get("language", "cadevolve")),
     )
 
     val_size = int(cfg["data"]["val_size"])
-
     idx = random.sample(range(len(train_full)), len(train_full))
     val_ds = Subset(train_full, idx[-val_size:])
     train_ds = Subset(train_full, idx[:-val_size])
 
     print("TRAIN_DS SIZE", len(train_ds))
+    print("VAL_DS SIZE", len(val_ds))
 
     # ----- training args -----
     t = cfg["training"]
@@ -272,6 +304,7 @@ def run_training(cfg: dict):
         eval_steps=int(t["eval_steps"]),
         load_best_model_at_end=bool(t["load_best_model_at_end"]),
         bf16=bool(t["bf16"]),
+        fp16=bool(t.get("fp16", False)),
         dataloader_drop_last=bool(t["dataloader_drop_last"]),
         remove_unused_columns=bool(t["remove_unused_columns"]),
         report_to=str(t["report_to"]),
@@ -283,11 +316,12 @@ def run_training(cfg: dict):
         train_dataset=train_ds,
         eval_dataset=val_ds,
         data_collator=partial(collate_fn_for_sft, processor=processor),
-        tokenizer=processor,
+        tokenizer=processor,  # kept as you had it (HF ignores/uses depending on version)
     )
 
     trainer.train(resume_from_checkpoint=bool(cfg["run"]["resume_from_checkpoint"]))
     trainer.save_model(str(output_dir / "final_model"))
+
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -296,5 +330,3 @@ if __name__ == "__main__":
 
     cfg = load_config(args.config)
     run_training(cfg)
-
-
