@@ -179,16 +179,20 @@ def collate_fn_for_sft(batch, processor):
     return inputs
 
 def run_training(cfg: dict):
+    script_path = Path(__file__).resolve()
     # ----- logging -----
-    log_path = as_abs_path(cfg["logging"]["log_path"])
+    # log_path = as_abs_path(cfg["logging"]["log_path"])
+    log_path = script_path / cfg["logging"]["log_path"]
     setup_logging(log_path)
 
     # ----- paths & constants -----
-    items_pkl = as_abs_path(cfg["data"]["items_pkl"], strict=True)
+    # items_pkl = as_abs_path(cfg["data"]["items_pkl"], strict=True)
+    items_pkl = Path(cfg["data"]["items_pkl"])
     model_id = cfg["model"]["model_id"]
     # processor_id = cfg["model"]["processor_id"]
 
-    output_dir = as_abs_path(cfg["paths"]["output_dir"])
+    # output_dir = as_abs_path(cfg["paths"]["output_dir"])
+    output_dir = Path(cfg["paths"]["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # ----- seeds -----

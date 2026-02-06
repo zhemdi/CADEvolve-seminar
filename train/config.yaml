@@ -3,10 +3,10 @@ run:
   resume_from_checkpoint: false
 
 logging:
-  log_path: ./logs/cadevolve_ft # !!! abs path!!!
+  log_path: logs/cadevolve_ft # !!! abs path!!!
 
 paths:
-  output_dir: ./work_dirs/cadevolve_ft
+  output_dir: work_dirs/cadevolve_ft
 
 model:
   model_id: "kulibinai/cadevolve-rl1"
@@ -33,11 +33,11 @@ training:
   per_device_train_batch_size: 2
   per_device_eval_batch_size: 5
   gradient_accumulation_steps: 16
-  dataloader_num_workers: 16
+  dataloader_num_workers: 0
   learning_rate: 0.00002
   weight_decay: 0.01
   lr_scheduler_type: cosine
-  num_train_epochs: 2
+  num_train_epochs: 10
   warmup_steps: 1000
   logging_strategy: steps
   logging_steps: 20
